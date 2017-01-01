@@ -11,21 +11,19 @@ import java.io.FileReader;
 import java.io.IOException;
 import java.net.URL;
 import java.text.DateFormat;
-import java.text.DecimalFormat;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Random;
 import java.util.Set;
 
+import twitter4j.Status;
+import twitter4j.StatusUpdate;
 import twitter4j.Twitter;
+import twitter4j.TwitterException;
 import twitter4j.TwitterFactory;
 import twitter4j.auth.AccessToken;
 import essentials.Essentials;
@@ -37,26 +35,24 @@ import essentials.SimpleLog;
  */
 public class TwitterAccount {
 
-	Main main;
-
+	private Main main;
 	String path;
 	String name;
-	String congrats;
-	String tokenID;
-	String[] topURL;
-	String YouTubeAPIkey;
-	String infoPath;
+	private String congrats;
+	private String tokenID;
+	private String[] topURL;
+	private String infoPath;
+	private SimpleLog log;
 
-	Random rand = new Random();
-	String[] congratulations;
-	SimpleLog log;
-	static DecimalFormat nf = new DecimalFormat();
+	private Random rand = new Random();
+	private String[] congratulations;
+	private TwitterFactory factory;
+	private AccessToken accessToken;
+	private Twitter twitter;
 
-	TwitterFactory factory;
-	AccessToken accessToken;
-	Twitter twitter;
+	ArrayList<String> list;
 
-	static DateFormat dateFormat = new SimpleDateFormat("mm");
+	private static DateFormat dateFormat = new SimpleDateFormat("mm");
 
 	public TwitterAccount(Main main, String path, String name, String congrats,
 			String tokenID, String[] topURLs, String infoPath, SimpleLog log) {
@@ -79,6 +75,15 @@ public class TwitterAccount {
 		log.info("("
 				+ name
 				+ ") Successfully loaded congratulations and connected to Twitter");
+	}
+
+	public void updateList() {
+		try {
+			list = getNumberOfTopChannels(getChannelsToCheck(topURL), 1500);
+		} catch (IOException e) {
+			log.error("(" + name + ") Failed to update list");
+			log.logStackTrace(e);
+		}
 	}
 
 	private String[] getCongratulations() {
@@ -157,7 +162,8 @@ public class TwitterAccount {
 		for (String string : channel) {
 			map.put(string, Integer.parseInt(Main.getSubs(string, main)));
 		}
-		LinkedHashMap<String, Integer> sortedMap = (LinkedHashMap<String, Integer>) sortByValue(map);
+		LinkedHashMap<String, Integer> sortedMap = (LinkedHashMap<String, Integer>) Main
+				.sortByValue(map);
 		ArrayList<String> result = new ArrayList<String>();
 		int i = 0;
 		for (Map.Entry<String, Integer> entry : sortedMap.entrySet()) {
@@ -169,5 +175,47 @@ public class TwitterAccount {
 		return result;
 	}
 
-	
+	private void updateProfile(int count) {
+		Properties props = new Properties();
+		try {
+			props.load(new FileInputStream(new File(infoPath)));
+
+			twitter.updateProfile(
+					props.getProperty("name"),
+					props.getProperty("url"),
+					props.getProperty("location"),
+					props.getProperty("bio").replaceAll("@count",
+							String.valueOf(count)));
+		} catch (TwitterException | IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+
+	private boolean createPost(String username, String subs, String title) {
+		try {
+			// Generate the message
+			int index = new Random().nextInt(congratulations.length);
+			String message = congratulations[index];
+			message = message.replaceAll("@user", username);
+			message = message.replaceAll("@title", title);
+			message = message.replaceAll("@subs", subs);
+			if (message.length() > 140) {
+
+				log.warning("Status was to long. Will still pretend it worked");
+				return true;// It didn't work but we will pretend so
+			}
+			System.out.println(message);
+			StatusUpdate statusUpdate = new StatusUpdate(message);
+			Status status = twitter.updateStatus(statusUpdate);
+			log.info("Successfully updated the status to [" + status.getText()
+					+ "].");
+			return true;
+		} catch (TwitterException e) {
+			log.error("Error occured while creating Post");
+
+			log.logStackTrace(e);
+			return false;
+		}
+	}
 }

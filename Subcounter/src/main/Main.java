@@ -9,8 +9,10 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -30,16 +32,54 @@ public class Main {
 	final static String TOKEN_PATH = "/home/ftp/token.txt";
 
 	SimpleLog log;
-	String YouTubeAPIkey;
+	private String YouTubeAPIkey;
+	private static DecimalFormat nf = new DecimalFormat();
+
+	TwitterAccount[] basicAccounts = new TwitterAccount[1];
+	TwitterAccount intAccount;
+
+	String[][] topURLs;
+	String[] intTopURLs;
+
+	HashMap<String, String> globalList = new HashMap<String, String>();
 
 	public Main() {
 		log = new SimpleLog(new File("/var/www/html/log.txt"), true, true);
 		log.startupMessage("Starting Aboerfolg-Bot...");
 
 		YouTubeAPIkey = loadToken("youtube");
+
+		topURLs[0] = new String[] {
+				"http://socialblade.com/youtube/top/country/de/mostviewed",
+				"http://socialblade.com/youtube/top/country/de/mostsubscribed",
+				"http://socialblade.com/youtube/top/country/de" };
+
+		intTopURLs = new String[] {
+				"http://socialblade.com/youtube/top/500/mostsubscribed",
+				"http://socialblade.com/youtube/top/500",
+				"http://socialblade.com/youtube/top/5001d" };
+
+		basicAccounts[0] = new TwitterAccount(this,
+				"/home/ftp/subs.properties", "AboerfolgeDE",
+				"/home/ftp/congratulations.txt", "abos", topURLs[0],
+				"/home/ftp/info.properties", log);
+
+		intAccount = new TwitterAccount(this, "/home/ftp/subs.properties",
+				"AboerfolgeDE", "/home/ftp/congratulations.txt", "abos",
+				intTopURLs, "/home/ftp/info.properties", log);
+
 	}
 
-	public static String getSubs(String username, Main main) {
+	private void loadLists() {
+
+		for (TwitterAccount account : basicAccounts) {
+			account.updateList();
+		}
+
+	}
+
+	static String getSubs(String username, Main main) {
+
 		try {
 			try {
 				String result = Essentials.sendHTTPRequest(new URL(
@@ -59,7 +99,7 @@ public class Main {
 		}
 	}
 
-	public static AccessToken loadAccessToken(String id) {
+	static AccessToken loadAccessToken(String id) {
 		Properties prop = new Properties();
 		InputStream in;
 		try {
@@ -76,7 +116,7 @@ public class Main {
 		return null;
 	}
 
-	public static String loadToken(String id) {
+	static String loadToken(String id) {
 		Properties prop = new Properties();
 		InputStream in;
 		try {
@@ -92,7 +132,7 @@ public class Main {
 		return null;
 	}
 
-	public static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(
+	static <K, V extends Comparable<? super V>> Map<K, V> sortByValue(
 			Map<K, V> map) {
 		List<Map.Entry<K, V>> list = new LinkedList<Map.Entry<K, V>>(
 				map.entrySet());
@@ -107,5 +147,22 @@ public class Main {
 			result.put(entry.getKey(), entry.getValue());
 		}
 		return result;
+	}
+
+	private static String round(String subs) {
+		if (subs == null)
+			return null;
+		try {
+			int sub = Integer.parseInt(subs);
+			int down = sub / 100000;
+			if (sub > 3000000) {
+				down = down / 10;
+				down = down * 10;
+			}
+
+			return String.valueOf(nf.format(down * 100000));
+		} catch (NumberFormatException e) {
+			return "0";
+		}
 	}
 }
