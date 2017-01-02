@@ -5,6 +5,8 @@ package main;
 
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
@@ -12,7 +14,6 @@ import java.net.URL;
 import java.text.DecimalFormat;
 import java.util.Collections;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -41,7 +42,7 @@ public class Main {
 	String[][] topURLs;
 	String[] intTopURLs;
 
-	HashMap<String, String> globalList = new HashMap<String, String>();
+	Properties globalList = new Properties();
 
 	public Main() {
 		log = new SimpleLog(new File("/var/www/html/log.txt"), true, true);
@@ -70,21 +71,37 @@ public class Main {
 
 	}
 
-	private void loadLists() {
+	private void loadLists() throws FileNotFoundException, IOException {
 
 		for (TwitterAccount account : basicAccounts) {
 			account.updateList();
+
+			Properties props = new Properties();
+			props.load(new FileInputStream(new File(account.path)));
+
+			for (String channel : account.list) {
+
+				if (props.containsKey(channel)) {
+					globalList.setProperty(channel, props.getProperty(channel));
+				} else {
+					props.setProperty(channel, getSubs(channel));
+					globalList.setProperty(channel, getSubs(channel));
+				}
+
+			}
+			props.store(new FileOutputStream(new File(account.path)), null);
+
 		}
 
 	}
 
-	static String getSubs(String username, Main main) {
+	String getSubs(String username) {
 
 		try {
 			try {
 				String result = Essentials.sendHTTPRequest(new URL(
 						"https://www.googleapis.com/youtube/v3/channels?part=statistics&forUsername="
-								+ username + "&key=" + main.YouTubeAPIkey));
+								+ username + "&key=" + YouTubeAPIkey));
 				return result.substring(result.indexOf("subscriberCount") + 19,
 						result.indexOf("\"",
 								result.indexOf("subscriberCount") + 19));
@@ -92,9 +109,8 @@ public class Main {
 				return "0";
 			}
 		} catch (IOException e) {
-			main.log.error("Error occured while getting subscribers of "
-					+ username);
-			main.log.logStackTrace(e);
+			log.error("Error occured while getting subscribers of " + username);
+			log.logStackTrace(e);
 			return null;
 		}
 	}

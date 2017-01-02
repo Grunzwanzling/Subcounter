@@ -160,7 +160,7 @@ public class TwitterAccount {
 			int amount) {
 		HashMap<String, Integer> map = new HashMap<String, Integer>();
 		for (String string : channel) {
-			map.put(string, Integer.parseInt(Main.getSubs(string, main)));
+			map.put(string, Integer.parseInt(main.getSubs(string)));
 		}
 		LinkedHashMap<String, Integer> sortedMap = (LinkedHashMap<String, Integer>) Main
 				.sortByValue(map);
